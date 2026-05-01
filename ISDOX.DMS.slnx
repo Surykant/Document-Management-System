@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="ISDOX.DMS.Api/ISDOX.DMS.Api.csproj" />
+  <Project Path="ISDOX.DMS.AppHost/ISDOX.DMS.AppHost.csproj" />
+  <Project Path="ISDOX.DMS.Application/ISDOX.DMS.Application.csproj" />
+  <Project Path="ISDOX.DMS.Domain/ISDOX.DMS.Domain.csproj" />
+  <Project Path="ISDOX.DMS.Infrastructure/ISDOX.DMS.Infrastructure.csproj" />
+  <Project Path="ISDOX.DMS.ServiceDefaults/ISDOX.DMS.ServiceDefaults.csproj" />
+  <Project Path="ISDOX.DMS.Worker/ISDOX.DMS.Worker.csproj" />
+</Solution>
