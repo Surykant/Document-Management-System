@@ -40,7 +40,7 @@ namespace ISDOX.DMS.Application.Users.Queries
 
             var userRole = user.UserRoles.FirstOrDefault()?.Role.Name ?? "Standard User";
 
-            var token = _jwtProvider.GenerateToken(user.Id, user.Username, userRole);
+            var token = _jwtProvider.GenerateToken(user.Id, user.Username, userRole, user.Email);
             var refreshToken = GenerateRefreshToken();
 
             var expiredTokens = _context.RefreshTokens.Where(t => t.ExpiryTime < DateTime.Now).ToList();

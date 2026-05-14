@@ -60,6 +60,7 @@ namespace ISDOX.DMS.Api.Controllers
                 var command = new UpdateUserCommand(
                     id,
                     request.Username,
+                    request.Name,
                     request.Email,
                     request.Department,
                     request.IsActive);
@@ -90,5 +91,5 @@ namespace ISDOX.DMS.Api.Controllers
             return Ok(new { Message = "User deleted successfully." });
         }
     }
-    public record UpdateUserRequest(string Username, string Email, string Department, bool IsActive);
+    public record UpdateUserRequest(string Username, string Name, string Email, string Department, bool IsActive);
 }

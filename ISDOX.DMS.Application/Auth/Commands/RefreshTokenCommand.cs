@@ -42,7 +42,7 @@ namespace ISDOX.DMS.Application.Auth.Commands
 
             var userRole = user.UserRoles.FirstOrDefault()?.Role?.Name ?? "User";
 
-            var newAccessToken = _jwtProvider.GenerateToken(user.Id, user.Username, userRole);
+            var newAccessToken = _jwtProvider.GenerateToken(user.Id, user.Username, userRole, user.Email);
             var newRefreshTokenString = GenerateRefreshTokenString();
 
             _context.RefreshTokens.Remove(savedRefreshToken);

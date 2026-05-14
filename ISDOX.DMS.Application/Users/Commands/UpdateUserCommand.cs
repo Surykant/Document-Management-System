@@ -7,6 +7,7 @@ namespace ISDOX.DMS.Application.Users.Commands
     public record UpdateUserCommand(
          Guid Id,
          string Username,
+         string Name,
          string Email,
          string Department,
          bool IsActive) : IRequest<bool>;
@@ -33,6 +34,7 @@ namespace ISDOX.DMS.Application.Users.Commands
             }
 
             user.Username = request.Username;
+            user.Name = request.Name;
             user.Email = request.Email;
             user.Department = request.Department;
             user.IsActive = request.IsActive;

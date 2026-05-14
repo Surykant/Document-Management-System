@@ -41,7 +41,7 @@ namespace ISDOX.DMS.Api.Controllers
         public async Task<IActionResult> Rename(Guid id, [FromBody] string newName)
         {
             var result = await _mediator.Send(new UpdateFolderCommand(id, newName));
-            return result ? Ok() : NotFound();
+            return result ? Ok(new { Message = "Folder name changed successfully.." }) : NotFound();
         }
 
         [HttpDelete("{id}")]
@@ -50,7 +50,7 @@ namespace ISDOX.DMS.Api.Controllers
             try
             {
                 var result = await _mediator.Send(new DeleteFolderCommand(id));
-                return result ? NoContent() : NotFound();
+                return result ? Ok(new { Message = "Folder deleted successfully.." }) : NotFound();
             }
             catch (Exception ex)
             {

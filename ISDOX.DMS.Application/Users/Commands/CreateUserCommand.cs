@@ -8,6 +8,7 @@ namespace ISDOX.DMS.Application.Users.Commands
 {
     public record CreateUserCommand(
      string Username,
+     string Name,
      string Email,
      string Password,
      string Department) : IRequest<Guid>;
@@ -35,6 +36,7 @@ namespace ISDOX.DMS.Application.Users.Commands
             var user = new User
             {
                 Username = request.Username,
+                Name = request.Name,
                 Email = request.Email,
                 PasswordHash = passwordHash,
                 Department = request.Department,

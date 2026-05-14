@@ -19,7 +19,7 @@ namespace ISDOX.DMS.Infrastructure.Authentication
             _context = context;
         }
 
-        public string GenerateToken(Guid userId, string username, string role)
+        public string GenerateToken(Guid userId, string username, string role, string Email)
         {
             var secretKey = _configuration["Jwt:SecretKey"]!;
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -36,7 +36,8 @@ namespace ISDOX.DMS.Infrastructure.Authentication
             {
                 new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
                 new Claim(JwtRegisteredClaimNames.UniqueName, username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique ID for this token
+                new Claim(JwtRegisteredClaimNames.Email, Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) 
             };
 
             foreach (var userRole in rolesWithPermissions)
