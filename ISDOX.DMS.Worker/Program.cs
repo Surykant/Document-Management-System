@@ -1,5 +1,8 @@
 using Amazon.S3;
+using ISDOX.DMS.Application.Interfaces;
+using ISDOX.DMS.Infrastructure.Persistence;
 using ISDOX.DMS.Worker;
+using Microsoft.EntityFrameworkCore;
 using System.Data.Common;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -37,6 +40,14 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 
     return new AmazonS3Client(accessKey, secretKey, config);
 });
+builder.AddNpgsqlDbContext<DmsDbContext>("IsdoxDmsDev", configureDbContextOptions: options =>
+{
+    options.UseNpgsql(sql => sql.MigrationsAssembly("ISDOX.DMS.Infrastructure"));
+});
+
+// 2. Map the Interface to the Aspire-registered DbContext
+builder.Services.AddScoped<IDmsDbContext>(provider => provider.GetRequiredService<DmsDbContext>());
+builder.Services.AddHostedService<BulkImportBackgroundService>();
 
 var host = builder.Build();
 host.Run();

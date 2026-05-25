@@ -19,21 +19,28 @@ namespace ISDOX.DMS.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAllUsers(
+            [FromQuery] string? searchTerm,
+            [FromQuery] string? roleName,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var users = await _mediator.Send(new GetAllUsersQuery());
-            return Ok(users);
+            var query = new GetAllUsersQuery(searchTerm, roleName, pageNumber, pageSize);
+
+            var result = await _mediator.Send(query);
+
+            return Ok(result);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
+        [HttpGet("{id:guid}")]
+        public async Task<IActionResult> GetUserById(Guid id)
         {
-            var user = await _mediator.Send(new GetUserByIdQuery(id));
+            var query = new GetUserByIdQuery(id);
+            var result = await _mediator.Send(query);
 
-            if (user == null)
-                return NotFound(new { Message = "User not found." });
+            if (result == null) return NotFound("User not found.");
 
-            return Ok(user);
+            return Ok(result);
         }
 
         [HttpPost]

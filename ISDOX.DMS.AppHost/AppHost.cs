@@ -31,6 +31,7 @@ var api = builder.AddProject<Projects.ISDOX_DMS_Api>("api")
 
 // 6. Worker Project
 var worker = builder.AddProject<Projects.ISDOX_DMS_Worker>("worker")
+    .WithReference(database)
     .WithReference(messaging)
     .WithReference(elasticsearch)
     .WithReference(minio);

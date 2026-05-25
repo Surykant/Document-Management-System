@@ -51,7 +51,7 @@ namespace ISDOX.DMS.Application.Users.Queries
                 Id = Guid.NewGuid(),
                 Token = refreshToken,
                 UserId = user.Id,
-                ExpiryTime = DateTime.UtcNow.AddDays(7)
+                ExpiryTime = DateTime.Now.AddDays(7)
             });
 
             await _context.SaveChangesAsync(ct);
