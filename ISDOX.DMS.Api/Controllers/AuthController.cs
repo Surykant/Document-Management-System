@@ -37,7 +37,7 @@ namespace ISDOX.DMS.Api.Controllers
             }
         }
 
-        [Authorize]
+        [Authorize] 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {

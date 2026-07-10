@@ -1,7 +1,9 @@
-﻿using ISDOX.DMS.Application.Events;
+﻿using Elastic.Clients.Elasticsearch;
+using ISDOX.DMS.Application.Events;
 using ISDOX.DMS.Application.Interfaces;
 using ISDOX.DMS.Domain.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace ISDOX.DMS.Application.Documents.Commands
@@ -10,9 +12,7 @@ namespace ISDOX.DMS.Application.Documents.Commands
         string Name,
         string Description,
         Guid FolderId,
-        Stream FileStream,
-        string FileName,
-        long FileSizeInBytes,
+        IFormFile File, 
         string CreatedBy,
         Dictionary<string, string>? Metadata) : IRequest<Guid>;
 
@@ -21,17 +21,31 @@ namespace ISDOX.DMS.Application.Documents.Commands
         private readonly IDmsDbContext _context;
         private readonly IStorageService _storage;
         private readonly IMessagePublisher _messagePublisher;
+        private readonly ElasticsearchClient _elasticClient;        
+        private readonly IDocumentTextExtractor _textExtractor;      
 
-        public CreateDocumentCommandHandler(IDmsDbContext context, IStorageService storage, IMessagePublisher messagePublisher)
+        public CreateDocumentCommandHandler(
+            IDmsDbContext context,
+            IStorageService storage,
+            IMessagePublisher messagePublisher,
+            ElasticsearchClient elasticClient,
+            IDocumentTextExtractor textExtractor)
         {
             _context = context;
             _storage = storage;
             _messagePublisher = messagePublisher;
+            _elasticClient = elasticClient;
+            _textExtractor = textExtractor;
         }
 
         public async Task<Guid> Handle(CreateDocumentCommand request, CancellationToken ct)
         {
-            var storagePath = await _storage.UploadFileAsync(request.FileStream, request.FileName, ct);
+            var fileName = request.File.FileName;
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            var fileSize = request.File.Length;
+
+            using var stream = request.File.OpenReadStream();
+            var storagePath = await _storage.UploadFileAsync(stream, fileName, ct);
 
             var existingDocument = await _context.Documents
                 .Include(d => d.Versions)
@@ -55,8 +69,8 @@ namespace ISDOX.DMS.Application.Documents.Commands
                     DocumentId = existingDocument.Id,
                     VersionNumber = nextVersionNumber,
                     StoragePath = storagePath,
-                    FileExtension = Path.GetExtension(request.FileName),
-                    FileSize= request.FileSizeInBytes,
+                    FileExtension = extension,
+                    FileSize = fileSize,
                     CreatedBy = request.CreatedBy,
                     ChangeDescription = string.IsNullOrWhiteSpace(request.Description)
                         ? $"Updated to Version {nextVersionNumber}"
@@ -85,8 +99,8 @@ namespace ISDOX.DMS.Application.Documents.Commands
                     DocumentId = newDocument.Id,
                     VersionNumber = 1,
                     StoragePath = storagePath,
-                    FileExtension = Path.GetExtension(request.FileName),
-                    FileSize = request.FileSizeInBytes,
+                    FileExtension = extension,
+                    FileSize = fileSize,
                     CreatedBy = request.CreatedBy,
                     ChangeDescription = "Initial Upload",
                     CreatedAt = DateTime.Now
@@ -99,13 +113,42 @@ namespace ISDOX.DMS.Application.Documents.Commands
 
             await _context.SaveChangesAsync(ct);
 
+            var tempPath = Path.GetTempFileName();
+            try
+            {
+                using (var fs = new FileStream(tempPath, FileMode.Create))
+                {
+                    await request.File.CopyToAsync(fs, ct);
+                }
+
+                string extractedText = _textExtractor.ExtractText(tempPath, extension);
+
+                if (!string.IsNullOrWhiteSpace(extractedText))
+                {
+                    var searchDocument = new
+                    {
+                        Id = targetDocumentId,
+                        Content = extractedText,
+                        FileName = fileName,
+                        Owner = request.CreatedBy,
+                        FolderId = request.FolderId
+                    };
+
+                    await _elasticClient.IndexAsync(searchDocument, idx => idx.Index("isdox-documents-index"), ct);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+            }
+
             var uploadEvent = new DocumentUploadedEvent(
                 DocumentId: targetDocumentId,
-                FileName: request.FileName,
+                FileName: fileName,
                 StoragePath: storagePath,
-                Owner: request.CreatedBy, 
-                CreatedAt: DateTime.Now, 
-                Metadata: request.Metadata ?? new Dictionary<string, string>() 
+                Owner: request.CreatedBy,
+                CreatedAt: DateTime.Now,
+                Metadata: request.Metadata ?? new Dictionary<string, string>()
             );
 
             await _messagePublisher.PublishAsync(uploadEvent, ct);

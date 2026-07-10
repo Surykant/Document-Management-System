@@ -3,7 +3,11 @@ using Microsoft.AspNetCore.Http;
 
 namespace ISDOX.DMS.Application.BulkImport
 {
-    public record StartBulkImportCommand(IFormFile File, string CurrentUser) : IRequest<Guid>;
+    public record StartBulkImportCommand(
+        IFormFile ZipFile,
+        IFormFile? CsvFile,
+        Guid? FolderId,
+        string CurrentUser) : IRequest<Guid>;
 
     public record GetBulkImportStatusQuery(Guid JobId) : IRequest<BulkImportStatusDto?>;
 

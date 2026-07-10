@@ -1,4 +1,5 @@
-﻿using ISDOX.DMS.Application.Documents.Commands;
+﻿using ISDOX.DMS.Application.Common.Behaviors;
+using ISDOX.DMS.Application.Documents.Commands;
 using ISDOX.DMS.Application.Documents.Queries;
 using ISDOX.DMS.Application.Interfaces;
 using ISDOX.DMS.Infrastructure.Authentication;
@@ -25,7 +26,7 @@ namespace ISDOX.DMS.Api.Controllers
 
         [HttpGet]
         [HasPermission("Document.View")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? searchTerm = null, [FromQuery] string? ownerName = null, [FromQuery] string sortBy = "CreatedAt", [FromQuery] bool isDescending = true)
         {
             var docs = await _mediator.Send(new GetAllDocumentsQuery());
             return Ok(docs);
@@ -60,6 +61,7 @@ namespace ISDOX.DMS.Api.Controllers
                 return NotFound(new { Error = ex.Message });
             }
         }
+
         [HttpGet("{id}/versions/{versionNumber}/download")]
         [HasPermission("Document.Download")]
         public async Task<IActionResult> DownloadSpecificVersion(Guid id, int versionNumber)
@@ -75,6 +77,7 @@ namespace ISDOX.DMS.Api.Controllers
                 return NotFound(new { Error = ex.Message });
             }
         }
+
         [HttpGet("{id}/download")]
         [HasPermission("Document.Download")]
         public async Task<IActionResult> DownloadDocument(Guid id)
@@ -94,6 +97,7 @@ namespace ISDOX.DMS.Api.Controllers
                 return BadRequest(new { Message = "An error occurred while downloading the document.", Error = ex.Message });
             }
         }
+
         [HttpGet("search")]
         public async Task<IActionResult> SearchDocuments([FromQuery] string keyword)
         {
@@ -151,9 +155,7 @@ namespace ISDOX.DMS.Api.Controllers
                 Name: doc.Name,
                 Description: description,
                 FolderId: doc.FolderId ?? Guid.Empty,
-                FileStream: stream,
-                FileName: file.FileName,
-                FileSizeInBytes: file.Length,
+                File: file,
                 CreatedBy: createdBy,
                 Metadata: null
             );
@@ -177,6 +179,9 @@ namespace ISDOX.DMS.Api.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("File is empty or missing.");
 
+            if (!SupportedFileTypes.IsSupported(file.FileName))
+                return BadRequest($"File type not supported. Allowed: {string.Join(", ", SupportedFileTypes.AllowedExtensions)}");
+
             Dictionary<string, string>? metadata = null;
 
             if (!string.IsNullOrWhiteSpace(metadataJson))
@@ -184,29 +189,23 @@ namespace ISDOX.DMS.Api.Controllers
                 try
                 {
                     var cleanJson = metadataJson.Trim();
-
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
                     metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(cleanJson, options);
-                }
+                } 
                 catch (JsonException ex)
                 {
                     Console.WriteLine($"JSON Parsing Error: {ex.Message}. String received: {metadataJson}");
-                    return BadRequest(new { Message = "Invalid metadata format.", ReceivedValue = metadataJson });
+                    return BadRequest(new { Message = "Invalid metadata format.", ReceivedValue = metadataJson }); 
                 }
             }
-
-            using var stream = file.OpenReadStream();
 
             var command = new CreateDocumentCommand(
                 Name: name,
                 Description: description,
                 FolderId: folderId,
-                FileStream: stream,
-                FileName: file.FileName,
-                FileSizeInBytes: file.Length,
+                File: file,
                 CreatedBy: createdBy,
-                Metadata: metadata
+                Metadata: metadata ?? new Dictionary<string, string>() 
             );
 
             var documentId = await _mediator.Send(command);
@@ -222,7 +221,7 @@ namespace ISDOX.DMS.Api.Controllers
 
             if (!success) return NotFound("Document not found.");
 
-            return Ok(new { Message = "Document moved successfully." });
+            return Ok(new { Message = "Document moved successfully." }); 
         }
 
         [HttpPut("{id}")]
@@ -249,8 +248,9 @@ namespace ISDOX.DMS.Api.Controllers
             if (!success)
                 return NotFound(new { Error = "Document not found." });
 
-            return NoContent();
+            return Ok(new { Message = "Document deleted." });
         }
+
     }
     public record UpdateDocumentRequest(
     string Name,

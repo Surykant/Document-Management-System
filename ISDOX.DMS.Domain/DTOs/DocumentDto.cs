@@ -10,5 +10,6 @@
     Dictionary<string, string> CustomMetadata,
     int LatestVersionNumber,
     string FileExtension,
-    string StoragePath);
+    string StoragePath,
+    string? TemplateName);
 }

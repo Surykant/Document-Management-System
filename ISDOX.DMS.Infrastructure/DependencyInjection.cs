@@ -19,7 +19,8 @@ namespace ISDOX.DMS.Infrastructure
             services.AddScoped<IJwtProvider, JwtProvider>();
             services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
-            services.AddScoped<IEmailService, EmailService>(); 
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddSingleton<IDocumentTextExtractor, DocumentTextExtractor>();
 
             return services;
         }

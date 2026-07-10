@@ -1,4 +1,5 @@
 ﻿using ISDOX.DMS.Application.BulkImport;
+using ISDOX.DMS.Domain.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,14 +20,22 @@ namespace ISDOX.DMS.Api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UploadZip(IFormFile file)
+        public async Task<IActionResult> UploadZip([FromForm] BulkImportRequestDto request)
         {
-            if (!file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                return BadRequest("Only ZIP files are supported.");
+            if (request.ZipFile == null || !request.ZipFile.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                return BadRequest("A valid ZIP file is required for the document payload.");
+
+            if (request.CsvFile != null && !request.CsvFile.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Metadata file must be a CSV.");
 
             var currentUser = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "System";
 
-            var command = new StartBulkImportCommand(file, currentUser);
+            var command = new StartBulkImportCommand(
+                request.ZipFile,
+                request.CsvFile,
+                request.FolderId,
+                currentUser);
+
             var jobId = await _mediator.Send(command);
 
             return Accepted($"/api/bulk-import/status/{jobId}", new { JobId = jobId });
