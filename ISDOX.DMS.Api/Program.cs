@@ -5,6 +5,7 @@ using ISDOX.DMS.Infrastructure;
 using ISDOX.DMS.Infrastructure.Authentication;
 using ISDOX.DMS.Infrastructure.Messaging;
 using ISDOX.DMS.Infrastructure.Persistence;
+using ISDOX.DMS.Infrastructure.Search;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -130,7 +131,7 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-
+builder.Services.AddScoped<ISearchService, ElasticSearchService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

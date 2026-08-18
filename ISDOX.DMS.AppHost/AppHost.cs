@@ -14,7 +14,8 @@ var messaging = builder.AddRabbitMQ("messaging")
 var elasticsearch = builder.AddElasticsearch("elasticsearch")
                            .WithImageTag("8.19.4")
                            .WithDataVolume("es-data-v3")
-                           .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m");
+                           .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
+                           .WithLifetime(ContainerLifetime.Persistent); 
 
 // 4. Object Storage (MinIO)
 var minio = builder.AddMinioContainer("storage")

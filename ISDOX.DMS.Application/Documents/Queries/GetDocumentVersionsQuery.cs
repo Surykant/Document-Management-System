@@ -1,10 +1,12 @@
-﻿using ISDOX.DMS.Application.Interfaces;
+﻿using Elastic.Clients.Elasticsearch;
+using ISDOX.DMS.Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace ISDOX.DMS.Application.Documents.Queries
 {
     public record DocumentVersionHistoryDto(
+        Guid Id,
         int VersionNumber,
         string ChangeDescription,
         string CreatedBy,
@@ -33,6 +35,7 @@ namespace ISDOX.DMS.Application.Documents.Queries
                 throw new FileNotFoundException("No versions found for this document.");
 
             return versions.Select(v => new DocumentVersionHistoryDto(
+                Id: v.Id,
                 VersionNumber: v.VersionNumber,
                 ChangeDescription: v.ChangeDescription,
                 CreatedBy: v.CreatedBy,

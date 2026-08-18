@@ -1,8 +1,11 @@
-﻿using ISDOX.DMS.Application.Users.Commands;
+﻿using ISDOX.DMS.Application.Interfaces;
+using ISDOX.DMS.Application.Users.Commands;
 using ISDOX.DMS.Application.Users.Queries;
+using ISDOX.DMS.Domain.Models.Search;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ISDOX.DMS.Api.Controllers
 {
@@ -17,7 +20,48 @@ namespace ISDOX.DMS.Api.Controllers
         {
             _mediator = mediator;
         }
+        [HttpPost("reindex-all")]
+        public async Task<IActionResult> ReindexAllDocuments(
+    [FromServices] IDmsDbContext context,
+    [FromServices] ISearchService searchService,
+    [FromServices] IDocumentTextExtractor textExtractor, // Assuming you have this injected
+    CancellationToken ct)
+        {
+            // 1. Get all documents from the database
+            var allDocs = await context.Documents
+                .Include(d => d.Versions)
+                .ToListAsync(ct);
 
+            int count = 0;
+
+            foreach (var doc in allDocs)
+            {
+                var latestVersion = doc.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+                if (latestVersion == null) continue;
+
+                // NOTE: In a real scenario, you'd need to re-download the file from MinIO 
+                // to extract the text again. For a quick sync, we'll just index the metadata.
+
+                var searchModel = new DocumentSearchModel
+                {
+                    Id = doc.Id,
+                    Name = doc.Name,
+                    Description = doc.Description,
+                    FolderId = doc.FolderId,
+                    Owner = doc.Owner,
+                    CreatedAt = doc.CreatedAt,
+                    FileExtension = latestVersion.FileExtension,
+                    VersionNumber = latestVersion.VersionNumber,
+                    //Content = "" // Left empty unless you re-extract the text from MinIO
+                };
+
+                // 2. Push to Elasticsearch
+                await searchService.IndexDocumentAsync(searchModel);
+                count++;
+            }
+
+            return Ok(new { Message = $"Successfully pushed {count} documents to Elasticsearch." });
+        }
         [HttpGet]
         public async Task<IActionResult> GetAllUsers(
             [FromQuery] string? searchTerm,

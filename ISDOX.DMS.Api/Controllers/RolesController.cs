@@ -9,7 +9,7 @@ namespace ISDOX.DMS.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    //[Authorize(Roles = "Admin")]
     public class RolesController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -32,7 +32,18 @@ namespace ISDOX.DMS.Api.Controllers
             var roles = await _mediator.Send(new GetAllRolesQuery());
             return Ok(roles);
         }
+        [HttpGet("{roleId:guid}/permissions")]
+        public async Task<IActionResult> GetRolePermissions(Guid roleId)
+        {
+            if (roleId == Guid.Empty)
+                return BadRequest(new { Error = "Invalid Role ID." });
 
+            var query = new GetRolePermissionsQuery(roleId);
+            var results = await _mediator.Send(query);
+
+            // Returns a 200 OK with the array of permission objects (Id, Name, Description)
+            return Ok(results);
+        }
         [HttpPost("assign")]
         public async Task<IActionResult> Assign([FromBody] AssignRoleCommand command)
         {

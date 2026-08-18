@@ -33,12 +33,21 @@ namespace ISDOX.DMS.Api.Controllers
             var permissions = await _context.Permissions.ToListAsync();
             return Ok(permissions);
         }
-
-        [HttpPost("/api/roles/{roleId}/permissions")] 
-        public async Task<IActionResult> AssignToRole(Guid roleId, [FromBody] Guid permissionId)
+        public class AssignPermissionsDto
         {
-            var result = await _mediator.Send(new AssignPermissionToRoleCommand(roleId, permissionId));
-            return result ? Ok() : BadRequest();
+            public List<Guid> PermissionIds { get; set; } = new();
+        }
+
+        [HttpPost("/api/roles/{roleId:guid}/permissions")]
+        public async Task<IActionResult> AssignPermissions(Guid roleId, [FromBody] AssignPermissionsDto request)
+        {
+            if (request.PermissionIds == null || !request.PermissionIds.Any())
+                return BadRequest(new { Error = "At least one Permission ID must be provided." });
+
+            var command = new AssignPermissionsToRoleCommand(roleId, request.PermissionIds);
+            await _mediator.Send(command);
+
+            return Ok(new { Message = "Permissions assigned successfully." });
         }
     }
 }

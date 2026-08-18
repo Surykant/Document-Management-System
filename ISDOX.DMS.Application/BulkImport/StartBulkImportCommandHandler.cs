@@ -59,7 +59,7 @@ namespace ISDOX.DMS.Application.BulkImport
                 OriginalFileName = request.ZipFile.FileName,
                 TempStoragePath = tempZipS3Key,
                 Status = "Pending",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.Now
             };
             _context.BulkImportJobs.Add(job);
             await _context.SaveChangesAsync(ct);

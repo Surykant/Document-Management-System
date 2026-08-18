@@ -63,19 +63,27 @@ namespace ISDOX.DMS.Application.Dashboard.Queries.GetDashboardStats
 
             // 5. Calculate User Activity Chart
             var recentUploads = await documentsQuery
-                .Where(d => d.CreatedAt >= sevenDaysAgo)
-                .GroupBy(d => d.CreatedAt.Date)
-                .Select(g => new { Date = g.Key, Count = g.Count() })
-                .ToListAsync(ct);
+                        .Where(d => d.CreatedAt >= sevenDaysAgo)
+                        .GroupBy(d => d.CreatedAt.Date)
+                        .Select(g => new { Date = g.Key, Count = g.Count() })
+                        .ToListAsync(ct);
+
+            // Convert to a dictionary enforcing exact Date matching and O(1) lookups
+            var uploadDict = recentUploads.ToDictionary(
+                u => u.Date.Date, // Strips any residual time/ticks from the DB provider
+                u => u.Count
+            );
 
             var userActivityChart = new List<UserActivityDto>();
             for (int i = 6; i >= 0; i--)
             {
-                var targetDate = today.AddDays(-i);
+                var targetDate = today.AddDays(-i).Date;
+
                 userActivityChart.Add(new UserActivityDto
                 {
                     Date = targetDate.ToString("MMM dd"),
-                    UploadCount = recentUploads.FirstOrDefault(u => u.Date == targetDate)?.Count ?? 0
+                    // GetValueOrDefault safely checks the dictionary without failing on missing keys
+                    UploadCount = uploadDict.GetValueOrDefault(targetDate, 0)
                 });
             }
 

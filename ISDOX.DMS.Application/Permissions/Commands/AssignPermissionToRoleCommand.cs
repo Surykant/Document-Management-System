@@ -5,27 +5,39 @@ using MediatR;
 
 namespace ISDOX.DMS.Application.Permissions.Commands
 {
-    public record AssignPermissionToRoleCommand(Guid RoleId, Guid PermissionId) : IRequest<bool>;
+    public record AssignPermissionsToRoleCommand(Guid RoleId, List<Guid> PermissionIds) : IRequest<bool>;
 
-    public class AssignPermissionToRoleCommandHandler : IRequestHandler<AssignPermissionToRoleCommand, bool>
+    public class AssignPermissionsToRoleCommandHandler : IRequestHandler<AssignPermissionsToRoleCommand, bool>
     {
         private readonly IDmsDbContext _context;
-        public AssignPermissionToRoleCommandHandler(IDmsDbContext context) => _context = context;
 
-        public async Task<bool> Handle(AssignPermissionToRoleCommand request, CancellationToken ct)
+        public AssignPermissionsToRoleCommandHandler(IDmsDbContext context) => _context = context;
+
+        public async Task<bool> Handle(AssignPermissionsToRoleCommand request, CancellationToken ct)
         {
-            var exists = await _context.RolePermissions
-                .AnyAsync(rp => rp.RoleId == request.RoleId && rp.PermissionId == request.PermissionId, ct);
+            if (request.PermissionIds == null || !request.PermissionIds.Any())
+                return true; 
 
-            if (!exists)
-            {
-                _context.RolePermissions.Add(new RolePermission
+            var existingPermissionIds = await _context.RolePermissions
+                .Where(rp => rp.RoleId == request.RoleId && request.PermissionIds.Contains(rp.PermissionId))
+                .Select(rp => rp.PermissionId)
+                .ToListAsync(ct);
+
+            var permissionsToAdd = request.PermissionIds
+                .Except(existingPermissionIds)
+                .Select(permissionId => new RolePermission
                 {
                     RoleId = request.RoleId,
-                    PermissionId = request.PermissionId
-                });
+                    PermissionId = permissionId
+                })
+                .ToList();
+
+            if (permissionsToAdd.Any())
+            {
+                _context.RolePermissions.AddRange(permissionsToAdd);
                 await _context.SaveChangesAsync(ct);
             }
+
             return true;
         }
     }

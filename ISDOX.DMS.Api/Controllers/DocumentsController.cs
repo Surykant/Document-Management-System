@@ -106,7 +106,14 @@ namespace ISDOX.DMS.Api.Controllers
 
             try
             {
-                var query = new SearchDocumentsQuery(keyword);
+                var query = new SearchDocumentsQuery(
+             Keyword: keyword,
+             Owner: null,
+             FolderId: null,
+             FromDate: null,
+             ToDate: null,
+             DocumentType: null
+         );
                 var results = await _mediator.Send(query);
 
                 return Ok(results);
