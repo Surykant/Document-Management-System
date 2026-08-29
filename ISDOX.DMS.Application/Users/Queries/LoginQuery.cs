@@ -12,11 +12,14 @@ namespace ISDOX.DMS.Application.Users.Queries
     {
         private readonly IDmsDbContext _context;
         private readonly IJwtProvider _jwtProvider;
+        private readonly IAuditLogger _auditLogger;
 
-        public LoginQueryHandler(IDmsDbContext context, IJwtProvider jwtProvider)
+
+        public LoginQueryHandler(IDmsDbContext context, IJwtProvider jwtProvider, IAuditLogger auditLogger  )
         {
             _context = context;
             _jwtProvider = jwtProvider;
+            _auditLogger = auditLogger;
         }
 
         public async Task<LoginResponseDto> Handle(LoginQuery request, CancellationToken ct)
@@ -27,14 +30,42 @@ namespace ISDOX.DMS.Application.Users.Queries
                 .FirstOrDefaultAsync(u => u.Username == request.UsernameOrEmail || u.Email == request.UsernameOrEmail, ct);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                await _auditLogger.LogAsync(
+                   actionType: "Login",
+                   overrideUserId: "Invalid credentials.",
+                   overrideUserEmail: request.UsernameOrEmail,
+                   // folderPath: document.,
+                   status: "Failed",
+                   ct: ct
+               );
                 throw new UnauthorizedAccessException("Invalid credentials.");
+            }
 
             if (!user.IsActive)
+            {
+                await _auditLogger.LogAsync(
+                   actionType: "Login",
+                   overrideUserId: user.Id.ToString(),
+                    overrideUserEmail: user.Email,
+                   // folderPath: document.,
+                   status: "Failed",
+                   ct: ct
+               );
                 throw new UnauthorizedAccessException("User account is disabled.");
+            }
 
             var expiryDays = 30;
             if (user.PasswordLastChanged.AddDays(expiryDays) < DateTime.Now)
             {
+                await _auditLogger.LogAsync(
+                    actionType: "Login",
+                    overrideUserId: user.Id.ToString(),
+                    overrideUserEmail: user.Email,
+                    // folderPath: document.,
+                    status: "Failed",
+                    ct: ct
+                );
                 throw new Exception("Password has expired. Please reset your password.");
             }
 
@@ -56,6 +87,14 @@ namespace ISDOX.DMS.Application.Users.Queries
 
             await _context.SaveChangesAsync(ct);
 
+            await _auditLogger.LogAsync(
+                    actionType: "Login",
+                    overrideUserId: user.Id.ToString(),
+                    overrideUserEmail: user.Email,
+                    // folderPath: document.,
+                    status: "Success",
+                    ct: ct
+                );
             return new LoginResponseDto
             {
                 AccessToken = token,

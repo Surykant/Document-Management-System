@@ -13,8 +13,14 @@ namespace ISDOX.DMS.Application.Documents.Commands
     public class UpdateDocumentMetadataCommandHandler : IRequestHandler<UpdateDocumentMetadataCommand, bool>
     {
         private readonly IDmsDbContext _context;
+        private readonly IAuditLogger _auditLogger;
 
-        public UpdateDocumentMetadataCommandHandler(IDmsDbContext context) => _context = context;
+
+        public UpdateDocumentMetadataCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
+        {
+            _context = context;
+            _auditLogger = auditLogger;
+        }
 
         public async Task<bool> Handle(UpdateDocumentMetadataCommand request, CancellationToken ct)
         {
@@ -32,6 +38,15 @@ namespace ISDOX.DMS.Application.Documents.Commands
             }
 
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                    actionType: "Document Metadata Updated",
+                    entityId: document.Id,
+                    entityName: document.Name,
+                    // folderPath: document.,
+                    status: "Success",
+                    ct: ct
+                );
             return true;
         }
     }

@@ -10,7 +10,13 @@ namespace ISDOX.DMS.Application.Documents.Commands
     public class RestoreVersionCommandHandler : IRequestHandler<RestoreVersionCommand, bool>
     {
         private readonly IDmsDbContext _context;
-        public RestoreVersionCommandHandler(IDmsDbContext context) => _context = context;
+        private readonly IAuditLogger _auditLogger;
+
+        public RestoreVersionCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
+        {
+            _context = context;
+            _auditLogger = auditLogger;
+        }
 
         public async Task<bool> Handle(RestoreVersionCommand request, CancellationToken ct)
         {
@@ -35,6 +41,15 @@ namespace ISDOX.DMS.Application.Documents.Commands
 
             _context.DocumentVersions.Add(newVersion);
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "Document version restored.",
+                        entityId: newVersion.DocumentId,
+                        //entityName: targetVersion.,
+                         folderPath: targetVersion.StoragePath,
+                        status: "Success",
+                        ct: ct
+                    );
             return true;
         }
     }

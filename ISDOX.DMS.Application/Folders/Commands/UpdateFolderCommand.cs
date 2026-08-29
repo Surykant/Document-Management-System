@@ -8,7 +8,13 @@ namespace ISDOX.DMS.Application.Folders.Commands
     public class UpdateFolderCommandHandler : IRequestHandler<UpdateFolderCommand, bool>
     {
         private readonly IDmsDbContext _context;
-        public UpdateFolderCommandHandler(IDmsDbContext context) => _context = context;
+        private readonly IAuditLogger _auditLogger;
+
+        public UpdateFolderCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
+        {
+            _context = context;
+            _auditLogger = auditLogger;
+        }
 
         public async Task<bool> Handle(UpdateFolderCommand request, CancellationToken ct)
         {
@@ -17,6 +23,16 @@ namespace ISDOX.DMS.Application.Folders.Commands
 
             folder.Name = request.NewName;
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "Folder Updated",
+                        entityId: folder.Id,
+                        entityName: folder.Name,
+                        // folderPath: folder.,
+                        status: "Success",
+                        ct: ct
+                    );
+
             return true;
         }
     }

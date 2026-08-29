@@ -17,6 +17,9 @@ namespace ISDOX.DMS.Application.Interfaces
         DbSet<RolePermission> RolePermissions { get; set; }
         DbSet<MetadataTemplate> MetadataTemplates { get; set; }
         DbSet<BulkImportJob> BulkImportJobs { get; set; }
+        DbSet<DocumentShare> DocumentShares { get; set; }
+        DbSet<Notification> Notifications { get; set; }
+        DbSet<AuditLog> AuditLogs { get; set; }
 
         DbSet<TEntity> Set<TEntity>() where TEntity : class;
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);

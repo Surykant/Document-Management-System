@@ -9,7 +9,13 @@ namespace ISDOX.DMS.Application.Folders.Commands
     public class DeleteFolderCommandHandler : IRequestHandler<DeleteFolderCommand, bool>
     {
         private readonly IDmsDbContext _context;
-        public DeleteFolderCommandHandler(IDmsDbContext context) => _context = context;
+        private readonly IAuditLogger _auditLogger;
+
+        public DeleteFolderCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
+        {
+            _context = context;
+            _auditLogger = auditLogger;
+        }
 
         public async Task<bool> Handle(DeleteFolderCommand request, CancellationToken ct)
         {
@@ -27,6 +33,15 @@ namespace ISDOX.DMS.Application.Folders.Commands
 
             _context.Folders.Remove(folder);
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "Folder Deleted",
+                        entityId: folder.Id,
+                        entityName: folder.Name,
+                        // folderPath: folder.,
+                        status: "Success",
+                        ct: ct
+                    );
             return true;
         }
     }

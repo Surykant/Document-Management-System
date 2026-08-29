@@ -18,15 +18,10 @@ namespace ISDOX.DMS.Api.Controllers
 
         [HttpGet("documents")]
         // [HasPermission("Document.View")]
-        public async Task<IActionResult> Search(
-            [FromQuery] string? q,
-            [FromQuery] string? owner,
-            [FromQuery] Guid? folderId,
-            [FromQuery] DateTime? fromDate,
+        public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] string? owner, [FromQuery] Guid? folderId, [FromQuery] DateTime? fromDate,
             [FromQuery] DateTime? toDate,
-            [FromQuery] string? documentType) // <-- The new param
+            [FromQuery] string? documentType) 
         {
-            // Use named arguments to guarantee the exact mapping order
             var query = new SearchDocumentsQuery(
                 Keyword: q ?? "*",
                 Owner: owner,
@@ -37,6 +32,18 @@ namespace ISDOX.DMS.Api.Controllers
             );
 
             var results = await _mediator.Send(query);
+            return Ok(results);
+        }
+        [HttpPost("advanced-search")]
+        public async Task<IActionResult> AdvancedSearch([FromBody] AdvancedSearchDocumentsQuery request)
+        {
+            if (request == null || request.TemplateId == Guid.Empty)
+            {
+                return BadRequest(new { Error = "Invalid payload. TemplateId is required." });
+            }
+
+            var results = await _mediator.Send(request);
+
             return Ok(results);
         }
     }

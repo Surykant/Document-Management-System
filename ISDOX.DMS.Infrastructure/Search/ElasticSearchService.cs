@@ -1,7 +1,9 @@
-﻿using Elastic.Clients.Elasticsearch;
+﻿using DocumentFormat.OpenXml.Presentation;
+using Elastic.Clients.Elasticsearch;
 using Elastic.Clients.Elasticsearch.QueryDsl;
 using ISDOX.DMS.Application.Interfaces;
 using ISDOX.DMS.Domain.Models.Search;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ISDOX.DMS.Infrastructure.Search
 {
@@ -20,7 +22,7 @@ namespace ISDOX.DMS.Infrastructure.Search
             // Use the explicit request descriptor to guarantee v8 understands the index and ID
             var response = await _client.IndexAsync(model, req => req
                 .Index(IndexName)
-                .Id(model.Id.ToString()) // CRITICAL: Forces ES to use your Postgres Guid instead of a random string!
+                .Id(model.Id.ToString()) // CRITICAL: Forces ES to use your Postgres Guid instead of a random str   ing!
             );
 
             if (!response.IsValidResponse)
@@ -28,7 +30,7 @@ namespace ISDOX.DMS.Infrastructure.Search
                 Console.WriteLine($"Failed to index document: {response.DebugInformation}");
             }
         }
-
+        
         public async Task<IEnumerable<DocumentSearchModel>> SearchDocumentsAsync(
             string? query, string? owner, Guid? folderId,
             DateTime? fromDate, DateTime? toDate, string? documentType)

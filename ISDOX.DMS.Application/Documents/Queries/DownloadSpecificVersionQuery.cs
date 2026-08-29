@@ -10,11 +10,14 @@ namespace ISDOX.DMS.Application.Documents.Queries
     {
         private readonly IDmsDbContext _context;
         private readonly IStorageService _storage;
+        private readonly IAuditLogger _auditLogger;
 
-        public DownloadSpecificVersionQueryHandler(IDmsDbContext context, IStorageService storage)
+
+        public DownloadSpecificVersionQueryHandler(IDmsDbContext context, IStorageService storage, IAuditLogger auditLogger)
         {
             _context = context;
             _storage = storage;
+            _auditLogger = auditLogger;
         }
 
         public async Task<DocumentDownloadDto> Handle(DownloadSpecificVersionQuery request, CancellationToken ct)
@@ -33,6 +36,14 @@ namespace ISDOX.DMS.Application.Documents.Queries
 
             var versionedFileName = $"{Path.GetFileNameWithoutExtension(document.Name)}_v{specificVersion.VersionNumber}{specificVersion.FileExtension}";
 
+            await _auditLogger.LogAsync(
+               actionType: "Document Downloaded",
+               entityId: document.Id,
+               entityName: document.Name,
+               // folderPath: document.,
+               status: "Success",
+               ct: ct
+           );
             return new DocumentDownloadDto(
                 Content: stream,
                 ContentType: "application/octet-stream",

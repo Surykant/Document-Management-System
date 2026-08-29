@@ -140,6 +140,48 @@ namespace ISDOX.DMS.Api.Controllers
             return metadata != null ? Ok(metadata) : NotFound();
         }
 
+        [HttpGet("shared/{token}")]
+        public async Task<IActionResult> GetSharedDocument(string token)
+        {
+            try
+            {
+                var query = new GetSharedDocumentQuery(token);
+                var result = await _mediator.Send(query);
+
+                if (result == null)
+                    return NotFound(new { Error = "Link is invalid or has been revoked." });
+
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                // Returns a 403 Forbidden if the link is expired
+                return StatusCode(403, new { Error = ex.Message });
+            }
+        }
+
+        [HttpPost("{id:guid}/share")]
+        public async Task<IActionResult> GenerateShareLink(Guid id, [FromBody] ShareDocumentRequest request)
+        {
+            // In a real app, extract "CreatedBy" from the authenticated user's JWT Claims
+            var createdBy = User.Identity?.Name ?? "System";
+
+            var command = new ShareDocumentCommand(
+                id,
+                request.ExpiryDate,
+                request.IsPasswordProtected,
+                request.Password,
+                createdBy
+            );
+
+            var token = await _mediator.Send(command);
+
+            // Generate the full frontend URL to return to the UI
+            var fullUrl = $"https://share.isdox.com/file/{token}";
+
+            return Ok(new { Token = token, ShareUrl = fullUrl });
+        }
+
         [HttpPost("{id}/metadata")]
         [HttpPut("{id}/metadata")]
         [HasPermission("Document.Edit")]
@@ -263,4 +305,10 @@ namespace ISDOX.DMS.Api.Controllers
     string Name,
     string Description,
     Dictionary<string, string>? Metadata);
+    public class ShareDocumentRequest
+    {
+        public DateTime? ExpiryDate { get; set; }
+        public bool IsPasswordProtected { get; set; }
+        public string? Password { get; set; }
+    }
 }

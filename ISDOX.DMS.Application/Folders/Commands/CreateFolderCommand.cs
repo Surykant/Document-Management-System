@@ -10,10 +10,13 @@ namespace ISDOX.DMS.Application.Folders.Commands
     public class CreateFolderCommandHandler : IRequestHandler<CreateFolderCommand, Guid>
     {
         private readonly IDmsDbContext _context;
+        private readonly IAuditLogger _auditLogger;
 
-        public CreateFolderCommandHandler(IDmsDbContext context)
+
+        public CreateFolderCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
         {
             _context = context;
+            _auditLogger = auditLogger;
         }
 
         public async Task<Guid> Handle(CreateFolderCommand request, CancellationToken ct)
@@ -33,6 +36,15 @@ namespace ISDOX.DMS.Application.Folders.Commands
 
             _context.Folders.Add(folder);
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "Folder Created",
+                        entityId: folder.Id,
+                        entityName: folder.Name,
+                        // folderPath: folder.,
+                        status: "Success",
+                        ct: ct
+                    );
 
             return folder.Id;
         }

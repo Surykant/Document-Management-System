@@ -14,12 +14,14 @@ namespace ISDOX.DMS.Application.BulkImport
         private readonly IDmsDbContext _context;
         private readonly IAmazonS3 _s3Client;
         private readonly IConnection _rabbitMqConnection;
+        private readonly IAuditLogger _auditLogger;
 
-        public StartBulkImportCommandHandler(IDmsDbContext context, IAmazonS3 s3Client, IConnection rabbitMqConnection)
+        public StartBulkImportCommandHandler(IDmsDbContext context, IAmazonS3 s3Client, IConnection rabbitMqConnection, IAuditLogger auditLogger)
         {
             _context = context;
             _s3Client = s3Client;
             _rabbitMqConnection = rabbitMqConnection;
+            _auditLogger = auditLogger;
         }
 
         public async Task<Guid> Handle(StartBulkImportCommand request, CancellationToken ct)
@@ -80,6 +82,14 @@ namespace ISDOX.DMS.Application.BulkImport
             var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messagePayload));
 
             await channel.BasicPublishAsync(exchange: "", routingKey: "bulk-import-queue", body: body, cancellationToken: ct);
+
+            await _auditLogger.LogAsync(
+                actionType: "Bulk Import Initiated",
+                entityId: jobId, 
+                entityName: request.ZipFile.FileName, 
+                status: "Success",
+                ct: ct
+            );
 
             return jobId;
         }

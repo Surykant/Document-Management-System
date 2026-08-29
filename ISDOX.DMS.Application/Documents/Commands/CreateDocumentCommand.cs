@@ -1,7 +1,7 @@
-﻿using Elastic.Clients.Elasticsearch;
-using ISDOX.DMS.Application.Events;
+﻿using ISDOX.DMS.Application.Events;
 using ISDOX.DMS.Application.Interfaces;
 using ISDOX.DMS.Domain.Entities;
+using ISDOX.DMS.Domain.Models.Search;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +12,7 @@ namespace ISDOX.DMS.Application.Documents.Commands
         string Name,
         string Description,
         Guid FolderId,
-        IFormFile File, 
+        IFormFile File,
         string CreatedBy,
         Dictionary<string, string>? Metadata) : IRequest<Guid>;
 
@@ -21,21 +21,24 @@ namespace ISDOX.DMS.Application.Documents.Commands
         private readonly IDmsDbContext _context;
         private readonly IStorageService _storage;
         private readonly IMessagePublisher _messagePublisher;
-        private readonly ElasticsearchClient _elasticClient;        
-        private readonly IDocumentTextExtractor _textExtractor;      
+        private readonly ISearchService _searchService;
+        private readonly IDocumentTextExtractor _textExtractor;
+        private readonly IAuditLogger _auditLogger;
 
         public CreateDocumentCommandHandler(
             IDmsDbContext context,
             IStorageService storage,
             IMessagePublisher messagePublisher,
-            ElasticsearchClient elasticClient,
-            IDocumentTextExtractor textExtractor)
+            ISearchService searchService, 
+            IDocumentTextExtractor textExtractor,
+            IAuditLogger auditLogger)
         {
             _context = context;
             _storage = storage;
             _messagePublisher = messagePublisher;
-            _elasticClient = elasticClient;
+            _searchService = searchService;
             _textExtractor = textExtractor;
+            _auditLogger = auditLogger;
         }
 
         public async Task<Guid> Handle(CreateDocumentCommand request, CancellationToken ct)
@@ -52,12 +55,16 @@ namespace ISDOX.DMS.Application.Documents.Commands
                 .FirstOrDefaultAsync(d => d.Name == request.Name && d.FolderId == request.FolderId, ct);
 
             Guid targetDocumentId;
+            int currentVersionNumber;
+            DateTime documentCreatedAt;
 
             if (existingDocument != null)
             {
-                var nextVersionNumber = existingDocument.Versions.Any()
+                currentVersionNumber = existingDocument.Versions.Any()
                     ? existingDocument.Versions.Max(v => v.VersionNumber) + 1
                     : 1;
+
+                documentCreatedAt = existingDocument.CreatedAt;
 
                 if (request.Metadata != null)
                 {
@@ -67,21 +74,33 @@ namespace ISDOX.DMS.Application.Documents.Commands
                 var newVersion = new DocumentVersion
                 {
                     DocumentId = existingDocument.Id,
-                    VersionNumber = nextVersionNumber,
+                    VersionNumber = currentVersionNumber,
                     StoragePath = storagePath,
                     FileExtension = extension,
                     FileSize = fileSize,
                     CreatedBy = request.CreatedBy,
                     ChangeDescription = string.IsNullOrWhiteSpace(request.Description)
-                        ? $"Updated to Version {nextVersionNumber}"
+                        ? $"Updated to Version {currentVersionNumber}"
                         : request.Description
                 };
 
                 _context.DocumentVersions.Add(newVersion);
                 targetDocumentId = existingDocument.Id;
+
+                await _auditLogger.LogAsync(
+                actionType: "Document Version Updated",
+                entityId: existingDocument.Id,
+                entityName: fileName, 
+                folderPath: storagePath,
+                status: "Success",
+                ct: ct
+            );
             }
             else
             {
+                currentVersionNumber = 1;
+                documentCreatedAt = DateTime.Now;
+
                 var newDocument = new Document
                 {
                     Id = Guid.NewGuid(),
@@ -89,7 +108,7 @@ namespace ISDOX.DMS.Application.Documents.Commands
                     Description = request.Description,
                     FolderId = request.FolderId,
                     Owner = request.CreatedBy,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = documentCreatedAt,
                     CustomMetadata = request.Metadata ?? new Dictionary<string, string>()
                 };
 
@@ -97,18 +116,27 @@ namespace ISDOX.DMS.Application.Documents.Commands
                 {
                     Id = Guid.NewGuid(),
                     DocumentId = newDocument.Id,
-                    VersionNumber = 1,
+                    VersionNumber = currentVersionNumber,
                     StoragePath = storagePath,
                     FileExtension = extension,
                     FileSize = fileSize,
                     CreatedBy = request.CreatedBy,
                     ChangeDescription = "Initial Upload",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = documentCreatedAt
                 };
 
                 newDocument.Versions.Add(firstVersion);
                 _context.Documents.Add(newDocument);
                 targetDocumentId = newDocument.Id;
+
+                await _auditLogger.LogAsync(
+               actionType: "Document Created",
+               entityId: newDocument.Id,
+               entityName: request.Name,
+               folderPath: storagePath,
+               status: "Success",
+               ct: ct
+           );
             }
 
             await _context.SaveChangesAsync(ct);
@@ -123,19 +151,19 @@ namespace ISDOX.DMS.Application.Documents.Commands
 
                 string extractedText = _textExtractor.ExtractText(tempPath, extension);
 
-                if (!string.IsNullOrWhiteSpace(extractedText))
+                var searchModel = new DocumentSearchModel
                 {
-                    var searchDocument = new
-                    {
-                        Id = targetDocumentId,
-                        Content = extractedText,
-                        FileName = fileName,
-                        Owner = request.CreatedBy,
-                        FolderId = request.FolderId
-                    };
+                    Id = targetDocumentId,
+                    Name = request.Name,
+                    Description = request.Description,
+                    FolderId = request.FolderId,
+                    Owner = request.CreatedBy,
+                    CreatedAt = documentCreatedAt,
+                    FileExtension = extension, 
+                    VersionNumber = currentVersionNumber,
+                };
 
-                    await _elasticClient.IndexAsync(searchDocument, idx => idx.Index("isdox-documents-index"), ct);
-                }
+                await _searchService.IndexDocumentAsync(searchModel);
             }
             finally
             {
@@ -147,7 +175,7 @@ namespace ISDOX.DMS.Application.Documents.Commands
                 FileName: fileName,
                 StoragePath: storagePath,
                 Owner: request.CreatedBy,
-                CreatedAt: DateTime.Now,
+                CreatedAt : documentCreatedAt,
                 Metadata: request.Metadata ?? new Dictionary<string, string>()
             );
 

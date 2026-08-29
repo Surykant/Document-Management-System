@@ -9,10 +9,12 @@ namespace ISDOX.DMS.Application.Auth.Commands
     public class LogoutCommandHandler : IRequestHandler<LogoutCommand, bool>
     {
         private readonly IDmsDbContext _context;
+        private readonly IAuditLogger _auditLogger;
 
-        public LogoutCommandHandler(IDmsDbContext context)
+        public LogoutCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
         {
             _context = context;
+            _auditLogger = auditLogger;
         }
 
         public async Task<bool> Handle(LogoutCommand request, CancellationToken ct)
@@ -23,12 +25,18 @@ namespace ISDOX.DMS.Application.Auth.Commands
 
             if (!userTokens.Any())
             {
-                return true; 
+                return true;
             }
 
             _context.RefreshTokens.RemoveRange(userTokens);
 
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "Logout",
+                        status: "Success",
+                        ct: ct
+                    );
             return true;
         }
     }

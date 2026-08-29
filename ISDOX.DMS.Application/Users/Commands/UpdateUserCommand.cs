@@ -15,10 +15,13 @@ namespace ISDOX.DMS.Application.Users.Commands
     public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, bool>
     {
         private readonly IDmsDbContext _context;
+        private readonly IAuditLogger _auditLogger;
 
-        public UpdateUserCommandHandler(IDmsDbContext context)
+
+        public UpdateUserCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
         {
             _context = context;
+            _auditLogger = auditLogger;
         }
 
         public async Task<bool> Handle(UpdateUserCommand request, CancellationToken ct)
@@ -40,6 +43,15 @@ namespace ISDOX.DMS.Application.Users.Commands
             user.IsActive = request.IsActive;
 
             var result = await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                       actionType: "User Updated",
+                       entityId: user.Id,
+                       entityName: user.Name,
+                       // folderPath: user.,
+                       status: "Success",
+                       ct: ct
+                   );
             return result > 0;
         }
     }

@@ -1,5 +1,6 @@
 ﻿using ISDOX.DMS.Application.Interfaces;
 using ISDOX.DMS.Infrastructure.Authentication;
+using ISDOX.DMS.Infrastructure.Logging;
 using ISDOX.DMS.Infrastructure.Messaging;
 using ISDOX.DMS.Infrastructure.Persistence;
 using ISDOX.DMS.Infrastructure.Services;
@@ -21,6 +22,9 @@ namespace ISDOX.DMS.Infrastructure
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IEmailService, EmailService>();
             services.AddSingleton<IDocumentTextExtractor, DocumentTextExtractor>();
+            services.AddHttpContextAccessor();
+            services.AddScoped<IAuditLogger, AuditLogger>();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             return services;
         }

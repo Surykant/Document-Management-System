@@ -17,13 +17,27 @@ namespace ISDOX.DMS.Application.Metadata
         IRequestHandler<GetAllTemplatesQuery, IEnumerable<MetadataTemplate>>
     {
         private readonly IDmsDbContext _context;
-        public MetadataTemplateHandler(IDmsDbContext context) => _context = context;
+        private readonly IAuditLogger _auditLogger;
+
+        public MetadataTemplateHandler(IDmsDbContext context, IAuditLogger auditLogger)
+        {
+            _context = context;
+            _auditLogger = auditLogger;
+        }
 
         public async Task<Guid> Handle(CreateTemplateCommand request, CancellationToken ct)
         {
             var template = new MetadataTemplate { Name = request.Name, Description = request.Description, AllowedFields = request.Fields };
             _context.MetadataTemplates.Add(template);
             await _context.SaveChangesAsync(ct);
+            await _auditLogger.LogAsync(
+                        actionType: "Metadata Template Created",
+                        entityId: template.Id,
+                        entityName: template.Name,
+                        // folderPath: template.,
+                        status: "Success",
+                        ct: ct
+                    );
             return template.Id;
         }
 
@@ -35,6 +49,15 @@ namespace ISDOX.DMS.Application.Metadata
             template.Description = request.Description;
             template.AllowedFields = request.Fields;
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "Metadata Template Updated",
+                        entityId: template.Id,
+                        entityName: template.Name,
+                        // folderPath: template.,
+                        status: "Success",
+                        ct: ct
+                    );
             return true;
         }
 
@@ -44,6 +67,15 @@ namespace ISDOX.DMS.Application.Metadata
             if (template == null) return false;
             _context.MetadataTemplates.Remove(template);
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                       actionType: "Metadata Template Deleted",
+                       entityId: template.Id,
+                       entityName: template.Name,
+                       // folderPath: template.,
+                       status: "Success",
+                       ct: ct
+                   );
             return true;
         }
 

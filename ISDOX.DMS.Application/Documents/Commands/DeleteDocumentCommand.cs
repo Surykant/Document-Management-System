@@ -15,12 +15,14 @@ namespace ISDOX.DMS.Application.Documents.Commands
         private readonly IDmsDbContext _context;
         private readonly IStorageService _storage;
         private readonly IMessagePublisher _messagePublisher;
+        private readonly IAuditLogger _auditLogger;
 
-        public DeleteDocumentCommandHandler(IDmsDbContext context, IStorageService storage, IMessagePublisher messagePublisher)
+        public DeleteDocumentCommandHandler(IDmsDbContext context, IStorageService storage, IMessagePublisher messagePublisher, IAuditLogger auditLogger)
         {
             _context = context;
             _storage = storage;
             _messagePublisher = messagePublisher;
+            _auditLogger = auditLogger;
         }
 
         public async Task<bool> Handle(DeleteDocumentCommand request, CancellationToken ct)
@@ -38,6 +40,15 @@ namespace ISDOX.DMS.Application.Documents.Commands
 
             _context.Documents.Remove(document);
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                actionType: "Document Deleted",
+                entityId: document.Id,
+                entityName: document.Name,
+               // folderPath: document.,
+                status: "Success",
+                ct: ct
+            );
 
             await _messagePublisher.PublishAsync(new DocumentDeletedEvent(document.Id), ct);
 

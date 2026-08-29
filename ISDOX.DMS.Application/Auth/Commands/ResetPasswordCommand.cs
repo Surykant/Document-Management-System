@@ -28,7 +28,10 @@ namespace ISDOX.DMS.Application.Auth.Commands
             var user = await _context.Users.FirstOrDefaultAsync(u =>
                 u.ResetToken == request.Token && u.ResetTokenExpires > DateTime.Now, ct);
 
-            if (user == null) return false;
+            if (user == null) 
+            { 
+                return false; 
+            }
 
             user.PasswordHash = _hasher.HashPassword(request.NewPassword);
 

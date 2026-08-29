@@ -17,11 +17,13 @@ namespace ISDOX.DMS.Application.Auth.Commands
     {
         private readonly IDmsDbContext _context;
         private readonly IPasswordHasher _hasher;
+        private readonly IAuditLogger _auditLogger;
 
-        public ChangePasswordCommandHandler(IDmsDbContext context, IPasswordHasher hasher)
+        public ChangePasswordCommandHandler(IDmsDbContext context, IPasswordHasher hasher, IAuditLogger auditLogger)
         {
             _context = context;
             _hasher = hasher;
+            _auditLogger = auditLogger;
         }
 
         public async Task<bool> Handle(ChangePasswordCommand request, CancellationToken ct)
@@ -30,11 +32,28 @@ namespace ISDOX.DMS.Application.Auth.Commands
             if (!isValid) throw new Exception(message);
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.UserId, ct);
-            if (user == null) throw new Exception("User not found.");
+            if (user == null) 
+            {
+                await _auditLogger.LogAsync(
+                    actionType: "Change Password",
+                    status: "Failed",
+                    overrideUserEmail: user.Email,
+                    overrideUserId: user?.Id.ToString(),
+                    ct: ct
+                );
+                throw new Exception("User not found.");             
+            }
 
             bool isCurrentPasswordValid = _hasher.VerifyPassword(request.CurrentPassword, user.PasswordHash);
             if (!isCurrentPasswordValid)
             {
+                await _auditLogger.LogAsync(
+                    actionType: "Change Password",
+                    status: "Failed",
+                    overrideUserEmail: user.Email,
+                    overrideUserId: user?.Id.ToString(),
+                    ct: ct
+                );
                 throw new Exception("The current password you entered is incorrect.");
             }
 
@@ -42,6 +61,14 @@ namespace ISDOX.DMS.Application.Auth.Commands
             user.PasswordLastChanged = DateTime.Now; 
 
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+            actionType: "Change Password",
+            status: "Success",
+            overrideUserEmail: user.Email, 
+            overrideUserId: user?.Id.ToString(), 
+            ct: ct
+        );
             return true;
         }
     }

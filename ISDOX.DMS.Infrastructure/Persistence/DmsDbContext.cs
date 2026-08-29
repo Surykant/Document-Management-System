@@ -20,6 +20,9 @@ namespace ISDOX.DMS.Infrastructure.Persistence
         public DbSet<RolePermission> RolePermissions { get; set; }
         public DbSet<MetadataTemplate> MetadataTemplates { get; set; }
         public DbSet<BulkImportJob> BulkImportJobs { get; set; }
+        public DbSet<DocumentShare> DocumentShares { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Folder>()

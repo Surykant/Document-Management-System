@@ -9,10 +9,13 @@ namespace ISDOX.DMS.Application.Users.Commands
     public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, bool>
     {
         private readonly IDmsDbContext _context;
+        private readonly IAuditLogger _auditLogger;
 
-        public DeleteUserCommandHandler(IDmsDbContext context)
+
+        public DeleteUserCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
         {
             _context = context;
+            _auditLogger = auditLogger;
         }
 
         public async Task<bool> Handle(DeleteUserCommand request, CancellationToken ct)
@@ -26,6 +29,15 @@ namespace ISDOX.DMS.Application.Users.Commands
             
 
             var result = await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "User Deleted",
+                        entityId: user.Id,
+                        entityName: user.Name,
+                        // folderPath: user.,
+                        status: "Success",
+                        ct: ct
+                    );
             return result > 0;
         }
     }

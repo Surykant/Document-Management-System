@@ -11,12 +11,15 @@ namespace ISDOX.DMS.Application.Documents.Queries
     public class DownloadDocumentQueryHandler : IRequestHandler<DownloadDocumentQuery, DocumentDownloadDto>
     {
         private readonly IDmsDbContext _context;
-        private readonly IStorageService _storage; 
+        private readonly IStorageService _storage;
+        private readonly IAuditLogger _auditLogger;
 
-        public DownloadDocumentQueryHandler(IDmsDbContext context, IStorageService storage)
+
+        public DownloadDocumentQueryHandler(IDmsDbContext context, IStorageService storage, IAuditLogger auditLogger)
         {
             _context = context;
             _storage = storage;
+            _auditLogger = auditLogger;
         }
 
         public async Task<DocumentDownloadDto> Handle(DownloadDocumentQuery request, CancellationToken ct)
@@ -34,6 +37,15 @@ namespace ISDOX.DMS.Application.Documents.Queries
                 throw new FileNotFoundException("No file versions exist for this document.");
 
             var stream = await _storage.DownloadFileAsync(latestVersion.StoragePath, ct);
+
+            await _auditLogger.LogAsync(
+                actionType: "Document Downloaded",
+                entityId: document.Id,
+                entityName: document.Name,
+                // folderPath: document.,
+                status: "Success",
+                ct: ct
+            );
 
             return new DocumentDownloadDto(
                 Content: stream,

@@ -16,10 +16,13 @@ namespace ISDOX.DMS.Application.Users.Commands
     public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Guid>
     {
         private readonly IDmsDbContext _context;
+        private readonly IAuditLogger _auditLogger;
 
-        public CreateUserCommandHandler(IDmsDbContext context)
+
+        public CreateUserCommandHandler(IDmsDbContext context, IAuditLogger auditLogger)
         {
             _context = context;
+            _auditLogger = auditLogger;
         }
 
         public async Task<Guid> Handle(CreateUserCommand request, CancellationToken ct)
@@ -45,6 +48,15 @@ namespace ISDOX.DMS.Application.Users.Commands
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync(ct);
+
+            await _auditLogger.LogAsync(
+                        actionType: "User Created",
+                        entityId: user.Id,
+                        entityName: user.Name,
+                        // folderPath: user.,
+                        status: "Success",
+                        ct: ct
+                    );
 
             return user.Id;
         }
